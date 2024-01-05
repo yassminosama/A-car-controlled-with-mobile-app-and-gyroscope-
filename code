@@ -1,0 +1,141 @@
+#include <WiFi.h>
+#include <RemoteXY.h>
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
+
+#define REMOTEXY_MODE__ESP32CORE_WIFI_POINT
+#define REMOTEXY_WIFI_SSID "project "
+#define REMOTEXY_WIFI_PASSWORD "aymona111"
+#define REMOTEXY_SERVER_PORT 6377
+
+// RemoteXY configuration
+#pragma pack(push, 1)
+  uint8_t RemoteXY_CONF[] =   // 36 bytes
+  { 255,3,0,0,0,29,0,16,20,0,2,0,6,50,22,11,2,26,31,31,
+  79,78,0,79,70,70,0,5,11,34,11,30,30,2,26,31 };
+  
+  
+struct
+{
+    uint8_t switch_1;
+    int8_t joystick_1_x;
+    int8_t joystick_1_y;
+    uint8_t connect_flag;
+} RemoteXY;
+#pragma pack(pop)
+CRemoteXY *remotexy;
+#define MOTOR_SPEED 255
+
+// Motor pins
+#define MOTOR1_ENA 12
+#define MOTOR1_IN1 14
+#define MOTOR1_IN2 27
+
+#define MOTOR2_ENB 13
+#define MOTOR2_IN3 26
+#define MOTOR2_IN4 25
+
+#define MOTOR3_ENC 32
+#define MOTOR3_IN5 33
+#define MOTOR3_IN6 15
+
+#define MOTOR4_END 18
+#define MOTOR4_IN7 19
+#define MOTOR4_IN8 4
+
+Adafruit_BNO055 bno = Adafruit_BNO055();
+
+void setup()
+{
+    remotexy = new CRemoteXY (
+    RemoteXY_CONF_PROGMEM, 
+    &RemoteXY, 
+    new CRemoteXYConnectionServer (
+      new CRemoteXYComm_WiFiPoint (
+        "project",       // REMOTEXY_WIFI_SSID
+        "aymona111"),        // REMOTEXY_WIFI_PASSWORD
+      6377                  // REMOTEXY_SERVER_PORT
+    )
+  ); 
+
+    pinMode(MOTOR1_ENA, OUTPUT);
+    pinMode(MOTOR1_IN1, OUTPUT);
+    pinMode(MOTOR1_IN2, OUTPUT);
+
+    pinMode(MOTOR2_ENB, OUTPUT);
+    pinMode(MOTOR2_IN3, OUTPUT);
+    pinMode(MOTOR2_IN4, OUTPUT);
+
+    pinMode(MOTOR3_ENC, OUTPUT);
+    pinMode(MOTOR3_IN5, OUTPUT);
+    pinMode(MOTOR3_IN6, OUTPUT);
+
+    pinMode(MOTOR4_END, OUTPUT);
+    pinMode(MOTOR4_IN7, OUTPUT);
+    pinMode(MOTOR4_IN8, OUTPUT);
+}
+
+void loop()
+{
+   remotexy->handler(); // Use RemoteXY_Handler() method
+
+    // Use RemoteXY data for controlling the car
+    if (RemoteXY.switch_1)
+    {
+        // Control the car with orientation only when switch_1 is ON
+        controlCarWithOrientation();
+    }
+    else
+    {
+        // Stop motors when switch_1 is OFF
+        stopMotors();
+    }
+}
+
+void controlCarWithOrientation()
+{
+    // Use RemoteXY variables for controlling the car
+    int8_t joystickX = RemoteXY.joystick_1_x;
+    int8_t joystickY = RemoteXY.joystick_1_y;
+
+    // Adjust motor speeds based on joystick values
+    int leftSpeed = MOTOR_SPEED + joystickX;
+    int rightSpeed = MOTOR_SPEED - joystickX;
+
+    analogWrite(MOTOR1_ENA, leftSpeed);
+    digitalWrite(MOTOR1_IN1, (leftSpeed > 0) ? HIGH : LOW);
+    digitalWrite(MOTOR1_IN2, (leftSpeed > 0) ? LOW : HIGH);
+
+    analogWrite(MOTOR2_ENB, rightSpeed);
+    digitalWrite(MOTOR2_IN3, (rightSpeed > 0) ? HIGH : LOW);
+    digitalWrite(MOTOR2_IN4, (rightSpeed > 0) ? LOW : HIGH);
+
+    analogWrite(MOTOR3_ENC, leftSpeed);
+    digitalWrite(MOTOR3_IN5, (leftSpeed > 0) ? HIGH : LOW);
+    digitalWrite(MOTOR3_IN6, (leftSpeed > 0) ? LOW : HIGH);
+
+    analogWrite(MOTOR4_END, rightSpeed);
+    digitalWrite(MOTOR4_IN7, (rightSpeed > 0) ? HIGH : LOW);
+    digitalWrite(MOTOR4_IN8, (rightSpeed > 0) ? LOW : HIGH);
+}
+
+void stopMotors()
+{
+    digitalWrite(MOTOR1_ENA, LOW);
+    digitalWrite(MOTOR1_IN1, LOW);
+    digitalWrite(MOTOR1_IN2, LOW);
+
+    digitalWrite(MOTOR2_ENB, LOW);
+    digitalWrite(MOTOR2_IN3, LOW);
+    digitalWrite(MOTOR2_IN4, LOW);
+
+    digitalWrite(MOTOR3_ENC, LOW);
+    digitalWrite(MOTOR3_IN5, LOW);
+    digitalWrite(MOTOR3_IN6, LOW);
+
+    digitalWrite(MOTOR4_END, LOW);
+    digitalWrite(MOTOR4_IN7, LOW);
+    digitalWrite(MOTOR4_IN8, LOW);
+}
